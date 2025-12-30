@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Zoom G2Four - Single Row FX Control</title>
+    <style>
+        :root {
+            --bg-color: #0f0f12;
+            --panel-color: #1e1e24;
+            --accent-blue: #00a8ff;
+            --accent-green: #2ecc71;
+            --accent-orange: #e67e22;
+            --text-main: #e0e0e0;
+        }
+
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background: var(--bg-color); 
+            color: var(--text-main); 
+            text-align: center; 
+            padding: 20px; 
+            margin: 0; 
+        }
+
+        .main-container {
+            max-width: 1100px;
+            margin: 0 auto;
+            background: var(--panel-color);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid #333;
+        }
+
+        .header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 30px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 20px;
+        }
+
+        h1 { margin: 0; font-weight: 300; letter-spacing: 2px; color: var(--accent-blue); }
+
+        #status { 
+            display: inline-block;
+            padding: 8px 15px; 
+            border-radius: 50px; 
+            font-size: 0.85em; 
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .connected { background: rgba(46, 204, 113, 0.2); color: var(--accent-green); border: 1px solid var(--accent-green); }
+        .disconnected { background: rgba(231, 76, 60, 0.2); color: #e74c3c; border: 1px solid #e74c3c; }
+
+        .section-label {
+            text-align: left;
+            font-size: 0.75em;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #888;
+            margin: 25px 0 10px 5px;
+        }
+
+        /* 10 columns for Patches */
+        .patch-grid { 
+            display: grid; 
+            grid-template-columns: repeat(10, 1fr); 
+            gap: 8px; 
+            margin-bottom: 20px;
+        }
+
+        /* Single row for 6 Effects */
+        .fx-grid { 
+            display: grid; 
+            grid-template-columns: repeat(6, 1fr); 
+            gap: 12px; 
+        }
+
+        button { 
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
+
+        .btn-patch { 
+            padding: 12px 5px; 
+            background: #2c2c34; 
+            color: #aaa; 
+            border: 1px solid #444;
+            font-size: 0.8em;
+        }
+        .btn-patch:hover { background: #3d3d4a; color: white; border-color: var(--accent-blue); }
+
+        .btn-tuner { background: #444; color: white; padding: 12px 25px; border: 1px solid #666; }
+        .btn-tuner:hover { background: var(--accent-orange); }
+
+        .btn-fx { 
+            padding: 20px 10px;
+            background: #1a1a1f; 
+            color: #666;
+            border: 2px solid #333;
+            font-size: 0.85em;
+        }
+        .btn-fx small { display: block; margin-top: 8px; font-size: 0.65em; }
+
+        button.active-on { 
+            background: rgba(46, 204, 113, 0.1) !important; 
+            color: var(--accent-green) !important; 
+            border-color: var(--accent-green) !important;
+            box-shadow: 0 0 15px rgba(46, 204, 113, 0.2);
+        }
+        
+        .indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #333;
+            margin: 0 auto 10px;
+        }
+        .active-on .indicator {
+            background: var(--accent-green);
+            box-shadow: 0 0 10px var(--accent-green);
+        }
+    </style>
+</head>
+<body>
+
+<div class="main-container">
+    <div class="header">
+        <h1>ZOOM G2FOUR</h1>
+        <button class="btn-tuner" onclick="sendTunerSysEx()">TUNER</button>
+    </div>
+
+    <div id="status" class="disconnected">SCANNING...</div>
+
+    <div class="section-label">Memory Patches (1 - 50)</div>
+    <div class="patch-grid" id="patchContainer"></div>
+
+    <div class="section-label">Effect Chain Control</div>
+    <div class="fx-grid">
+        <button id="btn-fx1" class="btn-fx" onclick="toggleFX(1, 0x00)"><div class="indicator"></div>FX 1 <small id="st1">BYPASS</small></button>
+        <button id="btn-fx2" class="btn-fx" onclick="toggleFX(2, 0x01)"><div class="indicator"></div>FX 2 <small id="st2">BYPASS</small></button>
+        <button id="btn-fx3" class="btn-fx" onclick="toggleFX(3, 0x02)"><div class="indicator"></div>FX 3 <small id="st3">BYPASS</small></button>
+        <button id="btn-fx4" class="btn-fx" onclick="toggleFX(4, 0x03)"><div class="indicator"></div>FX 4 <small id="st4">BYPASS</small></button>
+        <button id="btn-fx5" class="btn-fx" onclick="toggleFX(5, 0x04)"><div class="indicator"></div>FX 5 <small id="st5">BYPASS</small></button>
+        <button id="btn-fx6" class="btn-fx" onclick="toggleFX(6, 0x05)"><div class="indicator"></div>FX 6 <small id="st6">BYPASS</small></button>
+    </div>
+</div>
+
+<script>
+    const patchContainer = document.getElementById('patchContainer');
+    for (let i = 0; i < 50; i++) {
+        const btn = document.createElement('button');
+        btn.className = 'btn-patch';
+        btn.innerText = 'P' + (i + 1);
+        btn.onclick = () => sendPatchChange(i);
+        patchContainer.appendChild(btn);
+    }
+
+    let midiOutput = null;
+    let fxStates = { 1: false, 2: false, 3: false, 4: false, 5: false, 6: false };
+
+    navigator.requestMIDIAccess({ sysex: true }).then(onMIDISuccess, onMIDIFailure);
+
+    function onMIDISuccess(midiAccess) {
+        var outputs = midiAccess.outputs.values();
+        for (var output = outputs.next(); output && !output.done; output = outputs.next()) {
+            if (output.value.name.toUpperCase().includes("ZOOM") || output.value.name.toUpperCase().includes("G2")) {
+                midiOutput = output.value;
+                document.getElementById('status').innerText = "CONNECTED: " + midiOutput.name;
+                document.getElementById('status').className = "connected";
+                midiOutput.send([0xF0, 0x52, 0x00, 0x6E, 0x50, 0xF7]);
+            }
+        }
+    }
+
+    function onMIDIFailure() {
+        document.getElementById('status').innerText = "CONNECTION ERROR";
+        document.getElementById('status').className = "disconnected";
+    }
+
+    function sendPatchChange(index) {
+        if (!midiOutput) return;
+        const bankLSB = Math.floor(index / 10);
+        const pcValue = index % 10;
+        midiOutput.send([0xB0, 0x20, bankLSB]); // Bank LSB
+        midiOutput.send([0xC0, pcValue]);       // Program Change
+    }
+
+    function sendTunerSysEx() {
+        if (midiOutput) midiOutput.send([0xF0, 0x52, 0x00, 0x6E, 0x64, 0x0C, 0xF7]);
+    }
+
+    function toggleFX(num, fxID) {
+        if (!midiOutput) return;
+        const btn = document.getElementById('btn-fx' + num);
+        const label = document.getElementById('st' + num);
+        const state = !fxStates[num] ? 0x01 : 0x00;
+        
+        // SysEx command for FX toggle based on your images
+        midiOutput.send([0xF0, 0x52, 0x00, 0x6E, 0x64, 0x20, 0x00, fxID, 0x00, state, 0x00, 0x00, 0x00, 0x00, 0xF7]);
+        
+        fxStates[num] = !fxStates[num];
+        if (fxStates[num]) {
+            btn.classList.add('active-on');
+            label.innerText = "ACTIVE";
+        } else {
+            btn.classList.remove('active-on');
+            label.innerText = "BYPASS";
+        }
+    }
+</script>
+</body>
+</html>
